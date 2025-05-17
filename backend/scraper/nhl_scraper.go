@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 type Game struct {
@@ -20,11 +21,11 @@ type Game struct {
 }
 
 func FetchLiveGames() ([]Game, error) {
-	url := "https://statsapi.web.nhl.com/api/v1/schedule?expand=schedule.linescore"
+	url := "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard"
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch NHL data: %w", err)
+		return nil, fmt.Errorf("failed to fetch ESPN NHL data: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -34,56 +35,51 @@ func FetchLiveGames() ([]Game, error) {
 	}
 
 	var parsed struct {
-		Dates []struct {
-			Games []struct {
-				GameID   int    `json:"gamePk"`
-				GameDate string `json:"gameDate"`
-				Status   struct {
-					DetailedState string `json:"detailedState"`
-				} `json:"status"`
-				Teams struct {
-					Home struct {
-						Team struct {
-							Name string `json:"name"`
-						} `json:"team"`
-						Score int `json:"score"`
-					} `json:"home"`
-					Away struct {
-						Team struct {
-							Name string `json:"name"`
-						} `json:"team"`
-						Score int `json:"score"`
-					} `json:"away"`
-				} `json:"teams"`
-				Linescore struct {
-					CurrentPeriod             int    `json:"currentPeriod"`
-					CurrentPeriodTimeRemaining string `json:"currentPeriodTimeRemaining"`
-				} `json:"linescore"`
-			} `json:"games"`
-		} `json:"dates"`
+		Events []struct {
+			Status struct {
+				Type struct {
+					Description string `json:"description"`
+				} `json:"type"`
+			} `json:"status"`
+			Competitions []struct {
+				Competitors []struct {
+					Team struct {
+						DisplayName string `json:"displayName"`
+					} `json:"team"`
+					Score string `json:"score"`
+				} `json:"competitors"`
+			} `json:"competitions"`
+		} `json:"events"`
 	}
 
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		return nil, fmt.Errorf("failed to parse NHL API response: %w", err)
+		return nil, fmt.Errorf("failed to parse ESPN API response: %w", err)
 	}
 
 	var games []Game
-	for _, date := range parsed.Dates {
-		for _, g := range date.Games {
-			game := Game{
-				GameID:    g.GameID,
-				GameDate:  g.GameDate,
-				Status:    g.Status.DetailedState,
-				HomeTeam:  g.Teams.Home.Team.Name,
-				AwayTeam:  g.Teams.Away.Team.Name,
-				HomeScore: g.Teams.Home.Score,
-				AwayScore: g.Teams.Away.Score,
-				Period:    g.Linescore.CurrentPeriod,
-				TimeLeft:  g.Linescore.CurrentPeriodTimeRemaining,
-			}
-			games = append(games, game)
+	for _, e := range parsed.Events {
+		if len(e.Competitions) == 0 || len(e.Competitions[0].Competitors) < 2 {
+			continue
 		}
+		comp := e.Competitions[0].Competitors
+		game := Game{
+			GameID:    0, // ESPN doesn’t expose a game ID — set 0 or generate later
+			GameDate:  "",
+			Status:    e.Status.Type.Description,
+			HomeTeam:  comp[0].Team.DisplayName,
+			AwayTeam:  comp[1].Team.DisplayName,
+			HomeScore: atoiSafe(comp[0].Score),
+			AwayScore: atoiSafe(comp[1].Score),
+			Period:    0, // Can be parsed from status if needed
+			TimeLeft:  "",
+		}
+		games = append(games, game)
 	}
 
 	return games, nil
+}
+
+func atoiSafe(s string) int {
+	i, _ := strconv.Atoi(s)
+	return i
 }

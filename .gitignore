@@ -1,0 +1,35 @@
+node_modules
+
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+
+# Frontend
+frontend/.svelte-kit/
+frontend/build/
+frontend/.vite/
+frontend/.vite-cache/
+frontend/tsconfig.tsbuildinfo
+frontend/.eslintcache
+
+# Backend
+backend/tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# air log or cache files
+*.log
