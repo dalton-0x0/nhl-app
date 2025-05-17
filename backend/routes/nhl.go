@@ -1,22 +1,18 @@
 package routes
 
 import (
+	"github.com/dalton-0x0/nhl-app/backend/scraper"
 	"github.com/gofiber/fiber/v2"
 )
 
 func GetLiveGames(c *fiber.Ctx) error {
-	// Placeholder response
-	data := fiber.Map{
-		"games": []fiber.Map{
-			{
-				"homeTeam":  "Maple Leafs",
-				"awayTeam":  "Bruins",
-				"score":     "2-3",
-				"period":    "3rd",
-				"remaining": "05:34",
-				"status":    "LIVE",
-			},
-		},
+	games, err := scraper.FetchLiveGames()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
-	return c.JSON(data)
+	return c.JSON(fiber.Map{
+		"games": games,
+	})
 }
